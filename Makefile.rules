@@ -1,0 +1,12 @@
+PROJ=tirf
+VERSION=
+TAR_EXT=.tar.bz2
+LOGIN=le-gal_a
+CC=g++
+RM=rm -fr
+MAKE=gmake
+SRC=      main.cpp\
+                filtre.cpp\
+
+                
+CFLAGS=-Wall -W -Werror -ansi -pedantic

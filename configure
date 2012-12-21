@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Files
+echo 'PROJ=tirf'        > Makefile.rules
+echo 'VERSION='      		>> Makefile.rules
+echo 'TAR_EXT=.tar.bz2' 	>> Makefile.rules
+echo 'LOGIN=le-gal_a'   	>> Makefile.rules
+
+# General
+echo 'CC=g++'           >> Makefile.rules
+echo 'RM=rm -fr'        >> Makefile.rules
+echo 'MAKE=gmake'       >> Makefile.rules
+echo 'SRC=      main.cpp\
+                filtre.cpp\
+
+                '  >> Makefile.rules
+
+echo 'CFLAGS=-Wall -W -Werror -ansi -pedantic' >> Makefile.rules
+
+
