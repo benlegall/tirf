@@ -25,39 +25,29 @@ int main(/*int argc, char** argv*/)
     for (int i = 0; i < 16; ++i)
     {
         filtre *fil = new filtre(filenames.at(i));
+        std::vector<zone> zones;
 
-        fil->contrast(200);
+        std::cout << "IMAGE : " << i << std::endl;
+
+        fil->contrast(350);
         fil->binarize_red();
-        oss << "res/" << i << "result_binary_red.jpg";
-        //fil->save_filtered(oss.str());
-
-        std::cout << oss.str() << std::endl;
-        oss.str(std::string());
-        oss.clear();
-
         fil->erode();
         fil->dilate();
-        //fil->gradient_graph();
         fil->connex_graph();
-        //fil->graph_color();
-        //oss << "res/" << i << "result_red_contour.jpg";
-        //fil->save_filtered(oss.str());
-
-        //oss.str(std::string());
-        //oss.clear();
-
-        //fil->erode();
-        //fil->dilate();
-        //fil->binarize_red();
-        //fil->connex_graph();
-        fil->find_red_zones();
+        zones = fil->find_red_zones();
+        //fil->draw_zones(zones);
+        zones = fil->find_white_zones(zones);
+        fil->dilate2();
+        fil->dilate2();
+        fil->evaluate_white_zone(zones);
+        fil->draw_zones(zones);
 
         oss << "res/" << i << "result_red_zones.jpg";
+
         fil->save_filtered(oss.str());
+
         oss.str(std::string());
         oss.clear();
-
-        oss.flush();
     }
 
     return 0;
