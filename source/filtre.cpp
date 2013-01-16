@@ -3,6 +3,7 @@
 filtre::filtre(std::string filename) {
     image = cv::imread(filename);
 
+    red_coef = 0;
     width = image.rows;
     height = image.cols;
     filtered = cv::Mat::zeros(width, height, image.type());
@@ -13,6 +14,10 @@ filtre::filtre(std::string filename) {
     }
 }
 
+
+void filtre::reread(std::string filename) {
+    image = cv::imread(filename);
+}
 
 void filtre::contrast(int contrast) {
 
@@ -57,7 +62,7 @@ void filtre::binarize_red() {
      for (int j = 0; j < height; ++j)
      {
          cv::Vec3b pix = image.at<cv::Vec3b>(i, j);
-         if ((pix[2] > 195) && (pix[1] < 40) && (pix[0] < 40))
+         if (is_red(pix))
              filtered.at<cv::Vec3b>(i, j)
                  = cv::Vec3b(255, 255, 255);
          else
@@ -165,21 +170,50 @@ void filtre::dilate() {
 void filtre::dilate2() {
 
     int dilate_factor = 1;
+    cv::Mat dilated = cv::Mat::zeros(width, height, filtered.type());
+
+    for (int i = 0; i < width; ++i)
+    {
+        for (int j = 0; j < height; ++j)
+        {
+            dilated.at<cv::Vec3b>(i, j)
+                = filtered.at<cv::Vec3b>(i, j);
+        }
+    }
 
     for (int i = dilate_factor; i < width - dilate_factor; ++i)
     {
         for (int j = dilate_factor; j < height - dilate_factor; ++j)
         {
-            if (is_black(filtered.at<cv::Vec3b>(i+1, j+1))) {
-                for (int k = -1; k <= 0; ++k)
+            bool black_pix_found = false;
+            for (int k = -dilate_factor; k <= dilate_factor; ++k)
+            {
+                for (int l = -dilate_factor; l <= dilate_factor; ++l)
                 {
-                    for (int l = -1; l <= 0; ++l)
+                    if (is_black(filtered.at<cv::Vec3b>(i+k, j+l))) {
+                        black_pix_found = true;
+                    }
+                }
+            }
+            if (black_pix_found)
+            {
+                for (int k = -dilate_factor; k <= 0; ++k)
+                {
+                    for (int l = -dilate_factor; l <= 0; ++l)
                     {
-                        filtered.at<cv::Vec3b>(i + k, j + l)
+                        dilated.at<cv::Vec3b>(i + k, j + l)
                             = cv::Vec3b(0, 0, 0);
                     }
                 }
             }
+        }
+    }
+    for (int i = 0; i < width; ++i)
+    {
+        for (int j = 0; j < height; ++j)
+        {
+            filtered.at<cv::Vec3b>(i, j)
+                = dilated.at<cv::Vec3b>(i, j);
         }
     }
 }
@@ -216,90 +250,6 @@ void filtre::connex_graph() {
     }
 }
 
-/*void filtre::gradient_graph() {
-    int gradient_hor = 0;
-    int gradient_vert = 0;
-    int c = 2;
-
-    for (int i = 1; i < width - 1; ++i)
-    {
-        for (int j = 1; j < height - 1; ++j)
-        {
-            gradient_hor = -filtered.at<cv::Vec3b>(i-1, j-1)[0] -
-                (c * filtered.at<cv::Vec3b>(i-1, j)[0]) -
-                filtered.at<cv::Vec3b>(i-1, j+1)[0] +
-                filtered.at<cv::Vec3b>(i+1, j-1)[0] +
-                (c * filtered.at<cv::Vec3b>(i+1, j)[0]) +
-                filtered.at<cv::Vec3b>(i+1, j+1)[0];
-
-            gradient_vert = -filtered.at<cv::Vec3b>(i-1, j-1)[0] -
-                (c * filtered.at<cv::Vec3b>(i, j-1)[0]) -
-                filtered.at<cv::Vec3b>(i+1, j-1)[0] +
-                filtered.at<cv::Vec3b>(i-1, j+1)[0] +
-                (c * filtered.at<cv::Vec3b>(i, j+1)[0]) +
-                filtered.at<cv::Vec3b>(i+1, j+1)[0];
-
-            if ((gradient_hor == 0 ) && (gradient_vert == 0))
-                graph[i][j] = 0;
-
-            if (gradient_hor != 0) {
-                cv::Vec3b before_pix = image.at<cv::Vec3b>(i-1, j);
-                cv::Vec3b after_pix = image.at<cv::Vec3b>(i+1, j);
-
-                if ((((before_pix[2] > 195) && (before_pix[1] < 50) &&
-                      (before_pix[0] < 50)) &&
-                     ((after_pix[2] < 50) && (after_pix[1] < 50) &&
-                      (after_pix[0] < 50))) ||
-                    (((after_pix[2] > 195) && (after_pix[1] < 50) &&
-                      (after_pix[0] < 50)) &&
-                     ((before_pix[2] < 50) && (before_pix[1] < 50) &&
-                      (before_pix[0] < 50))))//red to white
-                {
-                    graph[i][j] = 2;
-                    std::cout << "red to white or white " <<
-                        "to red gradient_hor = " <<
-                        gradient_hor << std::endl;
-
-                } else {
-                    if (graph[i-1][j] != 1)
-                        graph[i][j] = 1;
-                    else
-                        graph[i][j] = 0;
-                    std::cout << "something to red gradient_hor = " <<
-                        gradient_hor << std::endl;
-                }
-            }
-            if (gradient_vert != 0) {
-                cv::Vec3b before_pix = image.at<cv::Vec3b>(i, j - 1);
-                cv::Vec3b after_pix = image.at<cv::Vec3b>(i, j + 1);
-
-                if ((((before_pix[2] > 195) && (before_pix[1] < 50) &&
-                      (before_pix[0] < 50)) &&
-                     ((after_pix[2] < 50) && (after_pix[1] < 50) &&
-                      (after_pix[0] < 50))) ||
-                    (((after_pix[2] > 195) && (after_pix[1] < 50) &&
-                      (after_pix[0] < 50)) &&
-                     ((before_pix[2] < 50) && (before_pix[1] < 50) &&
-                      (before_pix[0] < 50))))//red to white
-                {
-                    graph[i][j] = 2;
-                    std::cout << "red to white or white " <<
-                        "to red gradient_vert = " <<
-                        gradient_vert << std::endl;
-
-                } else {
-                    if (graph[i][j-1] != 1)
-                        graph[i][j] = 1;
-                    else
-                        graph[i][j] = 0;
-                    std::cout << "something to red gradient_vert = " <<
-                        gradient_vert << std::endl;
-                }
-            }
-        }
-    }
-    }*/
-
 
 void filtre::graph_color() {
     //int sum = 0;
@@ -316,7 +266,7 @@ void filtre::graph_color() {
     }
 }
 
-void filtre::draw_zones(std::vector<zone> zones) {
+void filtre::draw_zones_green(std::vector<zone> zones) {
     filtered = image;
 
     for (std::vector<zone>::iterator it = zones.begin();
@@ -338,6 +288,30 @@ void filtre::draw_zones(std::vector<zone> zones) {
         }
     }
 }
+
+void filtre::draw_zones_blue(std::vector<zone> zones) {
+    filtered = image;
+
+    for (std::vector<zone>::iterator it = zones.begin();
+         it != zones.end(); it++)
+    {
+        for (int i = (*it).min_i; i < (*it).max_i; ++i)
+        {
+            filtered.at<cv::Vec3b>(i, (*it).min_j)
+                = cv::Vec3b(255, 0, 0);
+            filtered.at<cv::Vec3b>(i, (*it).max_j)
+                = cv::Vec3b(255, 0, 0);
+        }
+        for (int j = (*it).min_j; j < (*it).max_j; ++j)
+        {
+            filtered.at<cv::Vec3b>((*it).min_i, j)
+                = cv::Vec3b(255, 0, 0);
+            filtered.at<cv::Vec3b>((*it).max_i, j)
+                = cv::Vec3b(255, 0, 0);
+        }
+    }
+}
+
 
 std::vector<zone> filtre::find_red_zones() {
     std::vector<zone> red_zones;
@@ -430,7 +404,22 @@ void filtre::clean_red_zone(zone red) {
     }
 }
 
-std::vector<zone> filtre::find_white_zones(std::vector<zone> zones) {
+bool filtre::dismiss_red_zone(zone red) {
+    for (int i = red.min_i; i < red.max_i; ++i)
+    {
+        for (int j = red.min_j; j < red.max_j; ++j)
+        {
+            cv::Vec3b pix = filtered.at<cv::Vec3b>(i, j);
+
+            if ((is_green(pix)) || (is_blue(pix)))
+                return false;
+        }
+    }
+    return true;
+}
+
+std::vector<zone> filtre::find_white_zones(std::vector<zone> zones,
+                                           int enlarger) {
     std::vector<zone> white_zones;
     std::vector<zone> pre_white_zones;
 
@@ -441,32 +430,39 @@ std::vector<zone> filtre::find_white_zones(std::vector<zone> zones) {
          it != zones.end(); it++)
     {
         clean_red_zone(*it);
-        (*current_zone).max_j = 0;
-        (*current_zone).min_j = 0;
-        (*current_zone).max_i = 0;
-        (*current_zone).min_i = 0;
-        for (int i = (*it).min_i; i < (*it).max_i; ++i)
-        {
-            for (int j = (*it).min_j; j < (*it).max_j; ++j)
+
+        if (dismiss_red_zone(*it)) {
+            (*current_zone).max_j = 0;
+            (*current_zone).min_j = 0;
+            (*current_zone).max_i = 0;
+            (*current_zone).min_i = 0;
+            for (int i = (*it).min_i; i < (*it).max_i; ++i)
             {
-                cv::Vec3b pix = image.at<cv::Vec3b>(i, j);
-                if (is_white(pix))  {
-                    (*current_zone).max_j = j;
-                    (*current_zone).min_j = j;
-                    (*current_zone).max_i = i;
-                    (*current_zone).min_i = i;
+                for (int j = (*it).min_j; j < (*it).max_j; ++j)
+                {
+                    cv::Vec3b pix = image.at<cv::Vec3b>(i, j);
+                    if (is_white(pix))  {
+                        (*current_zone).max_j = j;
+                        (*current_zone).min_j = j;
+                        (*current_zone).max_i = i;
+                        (*current_zone).min_i = i;
 
-                    explore_white_zone(i, j, current_zone, (*it));
+                        explore_white_zone(i, j, current_zone, (*it));
 
-                    zone save = *current_zone;
-                    if ((save.max_j - save.min_j > 4) &&
-                        (save.max_i - save.min_i > 4)) {
-                        save.max_j += 2;
-                        save.max_i += 2;
-                        save.min_j -= 2;
-                        save.min_i -= 2;
+                        zone save = *current_zone;
+                        if ((save.max_j - save.min_j > 4) &&
+                            (save.max_i - save.min_i > 4) &&
+                            (save.min_i - enlarger > 0) &&
+                            (save.min_j - enlarger > 0) &&
+                            (save.max_i + enlarger < width) &&
+                            (save.max_j + enlarger < height)) {
+                            save.max_j += enlarger;
+                            save.max_i += enlarger;
+                            save.min_j -= enlarger;
+                            save.min_i -= enlarger;
 
-                        pre_white_zones.push_back(save);
+                            pre_white_zones.push_back(save);
+                        }
                     }
                 }
             }
@@ -555,15 +551,14 @@ void filtre::evaluate_white_zone(std::vector<zone>& zones) {
             int step = std::ceil(size_i / 20);
 
             for (int i = 0; i < 21; ++i) {
-                if (i == 0) {
-                    proj_val = calc_proj_hor((*it).min_i + i * step,
-                                             (*it).min_j,
-                                             (*it).max_i - i * step,
-                                             (*it).max_j);
+
+                proj_val = calc_proj_hor((*it).min_i + i * step,
+                                         (*it).min_j,
+                                         (*it).max_i - i * step,
+                                         (*it).max_j);
 
                     //std::cout << proj_val << ";";
                     sum += proj_val;
-                }
             }
         } else if ((size_i > size_j) && (size_j > 20)) {
             int step = std::ceil(size_j / 20);
@@ -575,17 +570,11 @@ void filtre::evaluate_white_zone(std::vector<zone>& zones) {
                                               (*it).max_i,
                                               (*it).max_j - i * step);
 
-                    //std::cout << proj_val << ";";
                     sum += proj_val;
-                    projection.push_back(proj_val);
             }
         }
-        if (sum >= 200) {
-            for (unsigned int i = 0; i < projection.size(); ++i)
-            {
-                std::cout << projection.at(i) << ";";
-            }
-            std::cout << "   and sum  = " << sum << std::endl
+        if ((sum >= 200) && (sum <= 300)) {
+            std::cout << "coca found with sum  = " << sum << std::endl
                       << std::endl;
             it++;
         } else {
@@ -596,8 +585,6 @@ void filtre::evaluate_white_zone(std::vector<zone>& zones) {
 }
 
 int filtre::calc_proj_hor(float x1, float y1, float x2, float y2) {
-
-//    filtered = image;
 
     int nb_white_zone_crossed = 0;
     bool in_white = false;
@@ -621,18 +608,12 @@ int filtre::calc_proj_hor(float x1, float y1, float x2, float y2) {
                         in_white = false;
 
                     }
-                        filtered.at<cv::Vec3b>(round(float((j - b)) / a),
-                                               j)
-                            = cv::Vec3b(255, 0, 0);
 
                 } else {
                     if (is_black(pix)) {
                         nb_white_zone_crossed++;
                         in_white = true;
                     }
-                        filtered.at<cv::Vec3b>(round(float((j - b)) / a),
-                                               j)
-                            = cv::Vec3b(255, 0, 0);
                 }
             } else {
                 pix = filtered.at<cv::Vec3b>(x1, j);
@@ -642,18 +623,11 @@ int filtre::calc_proj_hor(float x1, float y1, float x2, float y2) {
                     if(!is_black(pix) && !is_black(next_pix)) {
                         in_white = false;
                     }
-                    filtered.at<cv::Vec3b>(round(float((j - b)) / a),
-                                           j)
-                        = cv::Vec3b(255, 0, 0);
                 } else {
                     if (is_black(pix)) {
                         nb_white_zone_crossed++;
                         in_white = true;
                     }
-
-                    filtered.at<cv::Vec3b>(round(float((j - b)) / a),
-                                           j)
-                        = cv::Vec3b(255, 0, 0);
                 }
             }
         }
@@ -683,16 +657,12 @@ int filtre::calc_proj_vert(float x1, float y1, float x2, float y2) {
                     if (!is_black(pix) && !is_black(next_pix)) {
                         in_white = false;
                     }
-                    filtered.at<cv::Vec3b>(i, a * i + b)
-                        = cv::Vec3b(255, 0, 0);
                 } else {
                     if (is_black(pix)) {
                         nb_white_zone_crossed++;
                         in_white = true;
                     }
 
-                    filtered.at<cv::Vec3b>(i, a * i + b)
-                            = cv::Vec3b(255, 0, 0);
                 }
             } else {
                 pix = image.at<cv::Vec3b>(i, y1);
@@ -702,15 +672,12 @@ int filtre::calc_proj_vert(float x1, float y1, float x2, float y2) {
                     if (!is_black(pix) && !is_black(next_pix)) {
                         in_white = false;
                     }
-                        filtered.at<cv::Vec3b>(i, a * i + b)
-                            = cv::Vec3b(255, 0, 0);
+
                 } else {
                     if (is_black(pix)) {
                         nb_white_zone_crossed++;
                         in_white = true;
                     }
-                    filtered.at<cv::Vec3b>(i, a * i + b)
-                            = cv::Vec3b(255, 0, 0);
                 }
             }
         }
@@ -772,9 +739,22 @@ bool filtre::is_white(cv::Vec3b pix) {
             (pix[0] > 150));
 }
 
+bool filtre::is_red(cv::Vec3b pix) {
+    return ((pix[2] > 195 - red_coef) && (pix[1] < 40 + red_coef) &&
+            (pix[0] < 40 + red_coef));
+}
+
 bool filtre::is_black(cv::Vec3b pix) {
     return ((pix[2] == 0) && (pix[1] == 0) &&
             (pix[0] == 0));
+}
+
+bool filtre::is_blue(cv::Vec3b pix) {
+    return ((pix[0] > 195) && (pix[1] > 150) && (pix[2] < 40));
+}
+
+bool filtre::is_green(cv::Vec3b pix) {
+        return ((pix[1] > 195) && (pix[0] < 40) && (pix[2] < 40));
 }
 
 
@@ -815,4 +795,9 @@ bool filtre::inter_zone(zone z1, zone z2) {
 
 
     return false;
+}
+
+
+void filtre::inc_red_coef() {
+    red_coef += 25;
 }
